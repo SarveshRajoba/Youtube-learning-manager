@@ -84,6 +84,12 @@ production:
     database: backend_production
     username: backend
     password: <%= ENV["BACKEND_DATABASE_PASSWORD"] %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+    reaping_frequency: <%= ENV.fetch("DB_REAP_FREQ") { 10 } %>
+  primary_replica:
+    <<: *primary_production
+    database: backend_production
+    replica: true
   cache:
     <<: *primary_production
     database: backend_production_cache

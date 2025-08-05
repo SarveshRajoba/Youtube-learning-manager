@@ -1,4 +1,5 @@
 class PlaylistsController < ApiController
+  before_action :authenticate_user!
   before_action :set_playlist, only: %i[show update destroy]
 
   # GET /playlists
