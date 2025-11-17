@@ -34,6 +34,7 @@ A platform to manage, track, and summarize your YouTube learning journey. Featur
 - Axios for API communication
 - React Query for state management
 
+<<<<<<< HEAD:logs /README.md
 ## Database Schema (Simplified)
 - **User**: id, email, encrypted_password, yt_access_token, yt_refresh_token, token_expiry, jti, timestamps
 - **Playlist**: id, user_id, yt_id, title, thumbnail_url, video_count, timestamps
@@ -223,3 +224,5 @@ See `readme_progress.md` for a detailed project log and status table.
 - [Rails API Authentication: A Guide to Devise and Devise-JWT Integration (Medium)](https://medium.com/@alaminkhanshakil/rails-api-authentication-a-guide-to-devise-and-devise-jwt-integration-3626710e24c1)
 - [YouTube Data API Implementation Guide](https://developers.google.com/youtube/v3/guides/implementation)
 
+=======
+>>>>>>> e97dabc2813e20f14f3f99ae629441c863dfee30:README.md
