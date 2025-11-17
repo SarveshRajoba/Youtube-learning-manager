@@ -25,6 +25,10 @@ const Login = () => {
       });
 
       if (response.data.status.code === 200) {
+        // Store the token
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
         toast({
           title: "Success",
           description: "Logged in successfully!",
@@ -33,9 +37,12 @@ const Login = () => {
       }
     } catch (error: any) {
       console.error("Login error:", error);
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Login failed. Please try again.";
       toast({
-        title: "Error",
-        description: error.response?.data?.status?.message || "Login failed",
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

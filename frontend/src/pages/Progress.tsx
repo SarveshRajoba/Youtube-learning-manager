@@ -1,359 +1,426 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import Navigation from "@/components/Navigation";
-import { 
-  PlayCircle, 
-  Clock, 
-  CheckCircle, 
-  TrendingUp,
-  Filter,
+import {
+  PlayCircle,
+  Clock,
+  CheckCircle,
   Search,
-  Calendar,
-  BarChart3
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/api";
 
-// Mock data
-const progressData = {
-  stats: {
-    totalVideosWatched: 45,
-    totalWatchTime: "28h 45m",
-    averagePerDay: "1h 20m",
-    streakDays: 7,
-    completionRate: 78
-  },
-  recentVideos: [
-    {
-      id: 1,
-      title: "Advanced React Patterns",
-      playlist: "React Masterclass",
-      progress: 100,
-      duration: "25:30",
-      completedAt: "2024-01-21T14:30:00Z",
-      thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=200&h=120&fit=crop"
-    },
-    {
-      id: 2,
-      title: "Node.js Authentication",
-      playlist: "Backend Development",
-      progress: 65,
-      duration: "32:15",
-      lastWatchedAt: "2024-01-21T10:15:00Z",
-      thumbnail: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=200&h=120&fit=crop"
-    },
-    {
-      id: 3,
-      title: "CSS Grid Layout",
-      playlist: "Frontend Mastery",
-      progress: 45,
-      duration: "18:45",
-      lastWatchedAt: "2024-01-20T16:20:00Z",
-      thumbnail: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=120&fit=crop"
-    },
-    {
-      id: 4,
-      title: "Database Design Principles",
-      playlist: "Database Fundamentals",
-      progress: 90,
-      duration: "40:10",
-      lastWatchedAt: "2024-01-20T09:45:00Z",
-      thumbnail: "https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?w=200&h=120&fit=crop"
-    }
-  ],
-  weeklyProgress: [
-    { day: "Mon", minutes: 85 },
-    { day: "Tue", minutes: 120 },
-    { day: "Wed", minutes: 95 },
-    { day: "Thu", minutes: 140 },
-    { day: "Fri", minutes: 110 },
-    { day: "Sat", minutes: 75 },
-    { day: "Sun", minutes: 90 }
-  ]
-};
+interface Video {
+  id: string;
+  title: string;
+  thumbnail_url: string;
+  duration: number;
+  position: number;
+  yt_id: string;
+  playlist_id: string;
+  progress?: {
+    id?: string;
+    current_time: number;
+    completion_pct: number;
+    completed: boolean;
+    last_watched: string;
+  };
+}
+
+interface Playlist {
+  id: string;
+  yt_id: string;
+  title: string;
+  thumbnail_url: string;
+  video_count: number;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  videos: Video[];
+}
 
 const Progress = () => {
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [expandedPlaylists, setExpandedPlaylists] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  
-  const filteredVideos = progressData.recentVideos.filter(video => {
-    const matchesSearch = video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         video.playlist.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = filterStatus === "all" || 
-                         (filterStatus === "completed" && video.progress === 100) ||
-                         (filterStatus === "in-progress" && video.progress > 0 && video.progress < 100) ||
-                         (filterStatus === "not-started" && video.progress === 0);
-    
-    return matchesSearch && matchesFilter;
-  });
+  const [updatingVideos, setUpdatingVideos] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
-  const formatDuration = (isoString: string) => {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
+  const fetchPlaylists = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get("/playlists");
+      console.log("Playlists response:", response.data);
+
+      // Handle JSONAPI format - extract attributes if present
+      const playlistsData = (response.data.data || []).map((item: any) => {
+        return item.attributes || item;
+      });
+      setPlaylists(playlistsData);
+
+      // Expand all playlists by default - create new Set instance
+      setExpandedPlaylists(new Set(playlistsData.map((p: Playlist) => p.id)));
+    } catch (error: any) {
+      console.error("Error fetching playlists:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load playlists",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const getStatusBadge = (progress: number) => {
-    if (progress === 100) return <Badge className="bg-success text-success-foreground">Completed</Badge>;
-    if (progress > 0) return <Badge variant="secondary">In Progress</Badge>;
-    return <Badge variant="outline">Not Started</Badge>;
+  useEffect(() => {
+    fetchPlaylists();
+  }, []);
+
+  const togglePlaylist = (playlistId: string) => {
+    setExpandedPlaylists(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(playlistId)) {
+        newExpanded.delete(playlistId);
+      } else {
+        newExpanded.add(playlistId);
+      }
+      return newExpanded;
+    });
   };
+
+  const handleVideoToggle = async (video: Video, checked: boolean) => {
+    // Prevent multiple simultaneous updates
+    if (updatingVideos.has(video.id)) return;
+
+    setUpdatingVideos(prev => new Set(prev).add(video.id));
+
+    try {
+      if (checked) {
+        // Mark as complete
+        if (video.progress?.id) {
+          // Update existing progress
+          await api.put(`/progresses/${video.progress.id}`, {
+            progress: {
+              completed: true,
+              completion_pct: 100,
+              last_watched: new Date().toISOString()
+            }
+          });
+        } else {
+          // Create new progress
+          await api.post("/progresses", {
+            progress: {
+              video_id: video.id,
+              completed: true,
+              completion_pct: 100,
+              current_time: video.duration,
+              last_watched: new Date().toISOString()
+            }
+          });
+        }
+
+        toast({
+          title: "Progress Updated",
+          description: `Marked "${video.title}" as complete`,
+        });
+      } else {
+        // Mark as incomplete
+        if (video.progress?.id) {
+          await api.put(`/progresses/${video.progress.id}`, {
+            progress: {
+              completed: false,
+              completion_pct: 0,
+              current_time: 0,
+              last_watched: new Date().toISOString()
+            }
+          });
+
+          toast({
+            title: "Progress Updated",
+            description: `Marked "${video.title}" as incomplete`,
+          });
+        }
+      }
+
+      // Refresh playlists to get updated progress
+      await fetchPlaylists();
+    } catch (error: any) {
+      console.error("Error updating progress:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update progress",
+        variant: "destructive"
+      });
+    } finally {
+      setUpdatingVideos(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(video.id);
+        return newSet;
+      });
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const getPlaylistProgress = (playlist: Playlist) => {
+    if (!playlist.videos || playlist.videos.length === 0) return 0;
+    const completed = playlist.videos.filter(v => v.progress?.completed).length;
+    return (completed / playlist.videos.length) * 100;
+  };
+
+  const getTotalStats = () => {
+    const totalVideos = playlists.reduce((sum, p) => sum + (p.videos?.length || 0), 0);
+    const completedVideos = playlists.reduce(
+      (sum, p) => sum + (p.videos?.filter(v => v.progress?.completed).length || 0),
+      0
+    );
+    return { totalVideos, completedVideos };
+  };
+
+  const filteredPlaylists = playlists.filter(playlist =>
+    playlist.title?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const stats = getTotalStats();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading progress...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Learning Progress</h1>
           <p className="text-muted-foreground">
-            Track your learning journey and see how far you've come
+            Track your progress across all playlists - check off videos as you complete them
           </p>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Videos Watched</CardTitle>
-              <PlayCircle className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-medium">Total Videos</CardTitle>
+              <PlayCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{progressData.stats.totalVideosWatched}</div>
+              <div className="text-2xl font-bold">{stats.totalVideos}</div>
               <p className="text-xs text-muted-foreground">
-                Total completed
+                Across {playlists.length} playlists
               </p>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Watch Time</CardTitle>
-              <Clock className="h-4 w-4 text-success" />
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <CheckCircle className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{progressData.stats.totalWatchTime}</div>
+              <div className="text-2xl font-bold text-success">{stats.completedVideos}</div>
               <p className="text-xs text-muted-foreground">
-                Total time invested
+                {stats.totalVideos > 0 ? Math.round((stats.completedVideos / stats.totalVideos) * 100) : 0}% complete
               </p>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
-              <BarChart3 className="h-4 w-4 text-warning" />
+              <CardTitle className="text-sm font-medium">Remaining</CardTitle>
+              <Clock className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{progressData.stats.averagePerDay}</div>
+              <div className="text-2xl font-bold text-warning">{stats.totalVideos - stats.completedVideos}</div>
               <p className="text-xs text-muted-foreground">
-                Past 30 days
+                Videos to watch
               </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-              <TrendingUp className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{progressData.stats.streakDays}</div>
-              <p className="text-xs text-muted-foreground">
-                Days in a row
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-accent to-accent/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-              <CheckCircle className="h-4 w-4 text-accent-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{progressData.stats.completionRate}%</div>
-              <ProgressBar value={progressData.stats.completionRate} className="mt-2" />
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Video Progress List */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <CardTitle>Recent Learning Activity</CardTitle>
-                    <CardDescription>Videos you've been working on</CardDescription>
-                  </div>
-                  
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-none">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search videos..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 w-full sm:w-64"
-                      />
-                    </div>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="completed">Completed</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="not-started">Not Started</option>
-                    </select>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {filteredVideos.map((video) => (
-                    <div key={video.id} className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors group">
-                      <div className="relative w-24 h-14 rounded overflow-hidden flex-shrink-0">
-                        <img 
-                          src={video.thumbnail} 
-                          alt={video.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                          <PlayCircle className="h-4 w-4 text-white" />
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search playlists..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        {/* Playlists with Videos */}
+        <div className="space-y-4">
+          {filteredPlaylists.map((playlist) => {
+            const isExpanded = expandedPlaylists.has(playlist.id);
+            const progress = getPlaylistProgress(playlist);
+            const completedCount = playlist.videos?.filter(v => v.progress?.completed).length || 0;
+
+            return (
+              <Card key={playlist.id}>
+                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => togglePlaylist(playlist.id)}>
+                  <div className="flex items-center gap-4">
+                    <button className="flex-shrink-0">
+                      {isExpanded ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </button>
+
+                    <img
+                      src={playlist.thumbnail_url || "https://via.placeholder.com/120x68?text=No+Thumbnail"}
+                      alt={playlist.title}
+                      className="w-24 h-14 object-cover rounded"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold truncate">{playlist.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {completedCount}/{playlist.videos?.length || 0} videos completed
+                          </p>
                         </div>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                              <Link to={`/videos/${video.id}`}>{video.title}</Link>
-                            </h3>
-                            <p className="text-sm text-muted-foreground">{video.playlist}</p>
-                          </div>
-                          {getStatusBadge(video.progress)}
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="text-muted-foreground">{video.progress}%</span>
-                          </div>
-                          <ProgressBar value={video.progress} className="h-2" />
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center gap-4">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {video.duration}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {video.completedAt ? 
-                                `Completed ${formatDuration(video.completedAt)}` : 
-                                `Last watched ${formatDuration(video.lastWatchedAt || '')}`
-                              }
-                            </span>
-                          </div>
-                          <Button size="sm" variant="outline" asChild>
-                            <Link to={`/videos/${video.id}`}>
-                              {video.progress === 100 ? "Review" : video.progress > 0 ? "Continue" : "Start"}
+                        <div className="flex items-center gap-2">
+                          <Badge variant={progress === 100 ? "default" : "secondary"}>
+                            {Math.round(progress)}%
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Link to={`/playlists/${playlist.id}`}>
+                              <ExternalLink className="h-4 w-4" />
                             </Link>
                           </Button>
                         </div>
                       </div>
+                      <ProgressBar value={progress} className="mt-2" />
                     </div>
-                  ))}
-                  
-                  {filteredVideos.length === 0 && (
-                    <div className="text-center py-8">
-                      <PlayCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No videos found</h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm ? "Try adjusting your search terms" : "Start watching videos to see your progress here"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </div>
+                </CardHeader>
 
-          {/* Weekly Activity Chart */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Activity</CardTitle>
-                <CardDescription>Your learning time this week</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {progressData.weeklyProgress.map((day, index) => (
-                    <div key={day.day} className="flex items-center justify-between">
-                      <span className="text-sm font-medium w-12">{day.day}</span>
-                      <div className="flex-1 mx-4">
-                        <ProgressBar value={(day.minutes / 150) * 100} className="h-2" />
-                      </div>
-                      <span className="text-sm text-muted-foreground w-12 text-right">
-                        {Math.floor(day.minutes / 60)}h {day.minutes % 60}m
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 pt-4 border-t">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
-                      {Math.floor(progressData.weeklyProgress.reduce((sum, day) => sum + day.minutes, 0) / 60)}h{" "}
-                      {progressData.weeklyProgress.reduce((sum, day) => sum + day.minutes, 0) % 60}m
-                    </div>
-                    <p className="text-sm text-muted-foreground">This week</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                {isExpanded && (
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {playlist.videos?.map((video, index) => (
+                        <div
+                          key={video.id}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors"
+                        >
+                          <Checkbox
+                            id={`video-${video.id}`}
+                            checked={video.progress?.completed || false}
+                            onCheckedChange={(checked) => handleVideoToggle(video, checked as boolean)}
+                            disabled={updatingVideos.has(video.id)}
+                            className="flex-shrink-0"
+                          />
 
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground text-sm font-medium flex-shrink-0">
+                            {index + 1}
+                          </div>
+
+                          <img
+                            src={video.thumbnail_url || "https://via.placeholder.com/80x48?text=No+Thumbnail"}
+                            alt={video.title}
+                            className="w-20 h-12 object-cover rounded flex-shrink-0"
+                          />
+
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`video-${video.id}`}
+                              className={`font-medium cursor-pointer truncate block ${video.progress?.completed ? "line-through text-muted-foreground" : ""
+                                }`}
+                            >
+                              {video.title}
+                            </label>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatDuration(video.duration)}
+                              </span>
+                              {video.progress?.completed && video.progress?.last_watched && (
+                                <span className="text-success">
+                                  ✓ Completed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {updatingVideos.has(video.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                          )}
+                        </div>
+                      ))}
+
+                      {(!playlist.videos || playlist.videos.length === 0) && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <PlayCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No videos in this playlist</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+
+          {filteredPlaylists.length === 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle>Learning Goals</CardTitle>
-                <CardDescription>Your current objectives</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Watch 5 videos this week</span>
-                    <span>4/5</span>
-                  </div>
-                  <ProgressBar value={80} className="h-2" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Complete React course</span>
-                    <span>18/25</span>
-                  </div>
-                  <ProgressBar value={72} className="h-2" />
-                </div>
-                <Button asChild variant="outline" className="w-full gap-2">
-                  <Link to="/goals">
-                    <CheckCircle className="h-4 w-4" />
-                    View All Goals
-                  </Link>
-                </Button>
+              <CardContent className="text-center py-12">
+                <PlayCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {searchTerm ? "No playlists found" : "No playlists yet"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm ? "Try adjusting your search terms" : "Import your first playlist from YouTube to start tracking progress"}
+                </p>
+                {!searchTerm && (
+                  <Button asChild>
+                    <Link to="/playlists">Browse Playlists</Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
-          </div>
+          )}
         </div>
       </div>
     </div>

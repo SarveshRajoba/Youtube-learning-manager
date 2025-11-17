@@ -1,8 +1,11 @@
 class AuthController < ActionController::API
+  wrap_parameters false
 
   def login
-    user = User.find_by(email: params[:user][:email])
-    if user&.authenticate(params[:user][:password])
+    email = params[:user] ? params[:user][:email] : params[:email]
+    password = params[:user] ? params[:user][:password] : params[:password]
+    user = User.find_by(email: email)
+    if user&.authenticate(password)
       token = generate_jwt(user)
       render json: {
         status: { code: 200, message: 'Logged in successfully.' },
@@ -10,7 +13,11 @@ class AuthController < ActionController::API
         token: token
       }
     else
-      render json: { error: 'Invalid email or password' }, status: :unauthorized
+      render json: { 
+        error: 'Authentication failed',
+        message: 'Invalid email or password. Please check your credentials and try again.',
+        status: 401
+      }, status: :unauthorized
     end
   end
 
@@ -24,14 +31,20 @@ class AuthController < ActionController::API
         token: token
       }
     else
-      render json: { error: user.errors.full_messages.join(', ') }, status: :unprocessable_entity
+      error_messages = user.errors.full_messages
+      render json: { 
+        error: 'Validation failed',
+        message: error_messages.join(', '),
+        details: user.errors.as_json,
+        status: 422
+      }, status: :unprocessable_entity
     end
   end
 
   private
 
   def user_params
-    params.require(:user).permit(:email, :password, :password_confirmation)
+    params[:user] ? params.require(:user).permit(:email, :password, :password_confirmation) : params.permit(:email, :password, :password_confirmation)
   end
 
   def generate_jwt(user)

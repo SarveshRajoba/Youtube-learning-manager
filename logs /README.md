@@ -3,6 +3,14 @@
 ## Overview
 A platform to manage, track, and summarize your YouTube learning journey. Features include playlist/video import, AI-powered video summarization, progress tracking, and learning goals.
 
+## Important: User Consent for YouTube Data Access
+- **Consent page required**: Before accessing any user's YouTube data, the app must present a clear consent screen explaining what data will be accessed and for what purpose.
+- **OAuth scopes disclosure**: Display the exact YouTube OAuth scopes requested (e.g., `youtube.readonly`, `youtube`). Ask for the minimal scopes necessary.
+- **User control**: Provide a visible option to connect/disconnect Google, and instructions to revoke access from the user's Google Account.
+- **Server-side token handling**: Store `access_token`/`refresh_token` securely on the server only; do not expose tokens or client secrets to the frontend.
+- **Privacy and compliance**: Link to your Privacy Policy and Terms; ensure compliance with Google API Services User Data Policy and YouTube Terms of Service.
+- **References**: See Google OAuth 2.0 docs and the Ruby client library for recommended flows.
+
 ## MVP Feature Scope
 - User authentication (Devise + JWT)
 - Import YouTube playlists and videos
@@ -206,6 +214,10 @@ curl -X GET http://localhost:3000/playlists \
 
 ## Progress Log
 See `readme_progress.md` for a detailed project log and status table.
+
+## Future Scope
+- **Partial on-site preview with redirect**: Allow users to watch an initial segment (e.g., first 5%) of a video or the first video of a playlist embedded on the site, then prompt/redirect them to YouTube to continue (or continue seamlessly if they have Premium). Ensure full compliance with YouTube Player API and Terms of Service (no ad/skipping circumvention).
+- **Custom playlist creation synced to YouTube**: Let users curate custom playlists by selecting videos in the app; upon save, create/update the playlist on their YouTube account via OAuth 2.0 and the YouTube Data API. Handle scopes/consent, rate limits, and token refresh.
 
 ## Further Reading
 - [Rails API Authentication: A Guide to Devise and Devise-JWT Integration (Medium)](https://medium.com/@alaminkhanshakil/rails-api-authentication-a-guide-to-devise-and-devise-jwt-integration-3626710e24c1)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navigation from "@/components/Navigation";
-import { 
-  Play, 
-  Clock, 
-  CheckCircle, 
+import {
+  Play,
+  Clock,
+  CheckCircle,
   Target,
   Brain,
   BookOpen,
@@ -19,56 +19,78 @@ import {
   SkipBack,
   Bookmark,
   Share,
-  ThumbsUp
+  ThumbsUp,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data - in real app this would be fetched based on video ID
-const videoData = {
-  id: 4,
-  title: "Effects and Side Effects with useEffect",
-  description: "Learn how to handle side effects in React using the useEffect hook. We'll cover dependency arrays, cleanup functions, and common patterns for data fetching, subscriptions, and DOM manipulation.",
-  duration: "32:15",
-  watchProgress: 65,
-  completed: false,
-  thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&h=450&fit=crop",
-  playlist: {
-    id: 1,
-    title: "React Masterclass 2024",
-    currentIndex: 3,
-    totalVideos: 25
-  },
-  author: {
-    name: "Tech Academy",
-    avatar: "",
-    subscribers: "150K"
-  },
-  publishedAt: "2024-01-20",
-  tags: ["React", "useEffect", "Hooks", "JavaScript"],
-  aiSummary: {
-    available: true,
-    keyPoints: [
-      "useEffect hook manages side effects in React components",
-      "Dependency array controls when effects run",
-      "Cleanup functions prevent memory leaks",
-      "Common use cases include data fetching and event listeners"
-    ],
-    generatedAt: "2024-01-21T10:30:00Z"
-  },
-  notes: "This is a complex topic. Need to practice with more examples.",
-  relatedVideos: [
-    { id: 3, title: "State Management with useState", duration: "25:20" },
-    { id: 5, title: "Context API and useContext", duration: "28:10" }
-  ]
-};
+import api from "@/lib/api";
 
 const VideoDetail = () => {
   const { id } = useParams();
   const { toast } = useToast();
-  const [notes, setNotes] = useState(videoData.notes);
+  const [video, setVideo] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notes, setNotes] = useState("");
   const [isBookmarked, setIsBookmarked] = useState(false);
-  
-  const video = videoData; // In real app, fetch based on id
+  const [aiSummary, setAiSummary] = useState<any>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  const fetchVideo = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get(`/videos/${id}`);
+      setVideo(response.data.data);
+      setNotes(response.data.data.notes || "");
+    } catch (error: any) {
+      console.error("Error fetching video:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load video details",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchAiSummary = async () => {
+    try {
+      const response = await api.get(`/ai_summaries?video_id=${id}`);
+      if (response.data.data && response.data.data.length > 0) {
+        setAiSummary(response.data.data[0]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching AI summary:", error);
+    }
+  };
+
+  const generateAiSummary = async () => {
+    try {
+      setIsGeneratingSummary(true);
+      const response = await api.post("/ai_summaries/generate", { video_id: id });
+      setAiSummary(response.data.data);
+      toast({
+        title: "AI Summary Generated!",
+        description: "AI summary has been created successfully.",
+      });
+    } catch (error: any) {
+      console.error("Error generating AI summary:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI summary",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchVideo();
+      fetchAiSummary();
+    }
+  }, [id]);
 
   const handleMarkComplete = () => {
     toast({
@@ -101,7 +123,7 @@ const VideoDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -120,8 +142,8 @@ const VideoDetail = () => {
             {/* Video Player Placeholder */}
             <Card className="overflow-hidden">
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <img 
-                  src={video.thumbnail} 
+                <img
+                  src={video.thumbnail}
                   alt={video.title}
                   className="w-full h-full object-cover"
                 />
@@ -160,10 +182,10 @@ const VideoDetail = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     onClick={() => setIsBookmarked(!isBookmarked)}
                     className={isBookmarked ? "text-primary" : ""}
@@ -257,22 +279,22 @@ const VideoDetail = () => {
                   </div>
                   <Progress value={video.watchProgress} className="h-3" />
                 </div>
-                
+
                 <div className="space-y-2 pt-4 border-t">
-                  <Button 
-                    onClick={handleMarkComplete} 
+                  <Button
+                    onClick={handleMarkComplete}
                     className="w-full gap-2"
                     variant={video.completed ? "outline" : "default"}
                   >
                     <CheckCircle className="h-4 w-4" />
                     {video.completed ? "Mark Incomplete" : "Mark Complete"}
                   </Button>
-                  
+
                   <Button onClick={handleSetGoal} variant="outline" className="w-full gap-2">
                     <Target className="h-4 w-4" />
                     Set Learning Goal
                   </Button>
-                  
+
                   <Button onClick={handleGenerateSummary} variant="outline" className="w-full gap-2">
                     <Brain className="h-4 w-4" />
                     Generate Summary
@@ -300,7 +322,7 @@ const VideoDetail = () => {
                     Next
                   </Button>
                 </div>
-                
+
                 <Button asChild variant="outline" className="w-full">
                   <Link to={`/playlists/${video.playlist.id}`}>
                     View All Videos

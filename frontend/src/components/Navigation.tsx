@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,18 +19,45 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
+import api from "@/lib/api";
+
+interface UserProfile {
+  email: string;
+  name: string;
+}
 
 const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Mock user - in real app this would come from auth context
-  const user = {
-    name: "John Doe",
-    email: "john@example.com",
-    avatar: ""
-  };
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.get("/profile");
+        const profileData = response.data.data;
+        setUser({
+          email: profileData.email,
+          name: profileData.name || profileData.email.split('@')[0]
+        });
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        // If profile fetch fails, try to get email from token or set defaults
+        setUser({
+          email: "user@example.com",
+          name: "User"
+        });
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const displayName = user?.name || user?.email?.split('@')[0] || "U";
+  const displayEmail = user?.email || "user@example.com";
+  const avatarInitial = displayName.charAt(0).toUpperCase();
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -41,7 +68,7 @@ const Navigation = () => {
   ];
 
   const handleLogout = () => {
-    // In real app, this would clear auth state
+    localStorage.removeItem("token");
     navigate("/login");
   };
 
@@ -55,9 +82,9 @@ const Navigation = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
                 <PlayCircle className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span>LearnTube</span>
+              <span>Youtube Learning Manager</span>
             </Link>
-            
+
             {/* Desktop Navigation */}
             <div className="hidden md:ml-10 md:flex md:space-x-8">
               {navItems.map((item) => {
@@ -67,11 +94,10 @@ const Navigation = () => {
                   <Link
                     key={item.href}
                     to={item.href}
-                    className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive
-                        ? "text-primary bg-accent"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                    }`}
+                    className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive
+                      ? "text-primary bg-accent"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }`}
                   >
                     <Icon className="w-4 h-4 mr-2" />
                     {item.label}
@@ -83,21 +109,23 @@ const Navigation = () => {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {avatarInitial}
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user.name}</p>
+                    <p className="font-medium">{displayName}</p>
                     <p className="w-[200px] truncate text-sm text-muted-foreground">
-                      {user.email}
+                      {displayEmail}
                     </p>
                   </div>
                 </div>
@@ -141,11 +169,10 @@ const Navigation = () => {
                   <Link
                     key={item.href}
                     to={item.href}
-                    className={`flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors ${
-                      isActive
-                        ? "text-primary bg-accent"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                    }`}
+                    className={`flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors ${isActive
+                      ? "text-primary bg-accent"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Icon className="w-5 h-5 mr-3" />

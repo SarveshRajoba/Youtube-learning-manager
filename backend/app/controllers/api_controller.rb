@@ -23,7 +23,11 @@ class ApiController < ActionController::API
 
   def authenticate_user!
     unless current_user
-      render json: { error: 'Unauthorized' }, status: :unauthorized
+      render json: { 
+        error: 'Authentication required',
+        message: 'Please log in to access this resource',
+        status: 401
+      }, status: :unauthorized
     end
   end
 end

@@ -3,8 +3,8 @@ class GoalsController < ApiController
 
   # GET /goals
   def index
-    goals = current_user.goals
-    render json: GoalSerializer.new(goals).serializable_hash
+    goals = current_user.goals.includes(:playlist, :video)
+    render json: { data: goals.map { |goal| GoalSerializer.new(goal).serializable_hash[:data] } }
   end
 
   # GET /goals/1
@@ -15,10 +15,14 @@ class GoalsController < ApiController
   # POST /goals
   def create
     goal = current_user.goals.new(goal_params)
+    # Handle empty string playlist_id
+    if goal.playlist_id.blank?
+      goal.playlist_id = nil
+    end
     if goal.save
-      render json: GoalSerializer.new(goal).serializable_hash, status: :created
+      render json: { data: GoalSerializer.new(goal).serializable_hash[:data] }, status: :created
     else
-      render json: goal.errors, status: :unprocessable_entity
+      render json: { errors: goal.errors.full_messages }, status: :unprocessable_entity
     end
   end
 
@@ -43,6 +47,15 @@ class GoalsController < ApiController
     end
 
     def goal_params
-      params.require(:goal).permit(:playlist_id, :video_id, :target_date, :current_pct, :status)
+      params.require(:goal).permit(
+        :title,
+        :description,
+        :playlist_id,
+        :video_id,
+        :target_date,
+        :current_pct,
+        :status,
+        todos: [:id, :text, :completed, :due_date]
+      )
     end
 end

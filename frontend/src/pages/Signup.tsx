@@ -36,6 +36,10 @@ const Signup = () => {
       });
 
       if (response.data.status.code === 200) {
+        // Store the token
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
         toast({
           title: "Success",
           description: "Account created successfully!",
@@ -44,9 +48,12 @@ const Signup = () => {
       }
     } catch (error: any) {
       console.error("Signup error:", error);
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Signup failed. Please try again.";
       toast({
-        title: "Error",
-        description: error.response?.data?.status?.message || "Signup failed",
+        title: "Signup Failed",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

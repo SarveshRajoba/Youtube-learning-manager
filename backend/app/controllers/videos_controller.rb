@@ -14,11 +14,24 @@ class VideosController < ApiController
 
   # POST /videos
   def create
-    video = Video.new(video_params)
-    if video.save
-      render json: VideoSerializer.new(video).serializable_hash, status: :created
+    # Use find_or_create_by to handle duplicate videos gracefully
+    is_new = false
+    video = Video.find_or_create_by(playlist_id: video_params[:playlist_id], yt_id: video_params[:yt_id]) do |v|
+      v.assign_attributes(video_params)
+      is_new = true
+    end
+    
+    if video.persisted?
+      if is_new
+        render json: { data: VideoSerializer.new(video).serializable_hash[:data] }, status: :created
+      else
+        render json: { 
+          data: VideoSerializer.new(video).serializable_hash[:data],
+          message: "Video already exists in this playlist"
+        }, status: :ok
+      end
     else
-      render json: video.errors, status: :unprocessable_entity
+      render json: { errors: video.errors }, status: :unprocessable_entity
     end
   end
 

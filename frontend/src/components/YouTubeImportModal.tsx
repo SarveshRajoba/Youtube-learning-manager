@@ -35,8 +35,10 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
 
         setIsSearching(true);
         try {
+            console.log("YouTube API Key:", import.meta.env.VITE_YOUTUBE_API_KEY);
             const youtubeAPI = new YouTubeAPI();
             const results = await youtubeAPI.searchPlaylists(searchQuery, 10);
+            console.log("Search results:", results);
             setSearchResults(results);
         } catch (error: any) {
             console.error("Search error:", error);
@@ -53,12 +55,16 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
     const handleImport = async (playlist: YouTubePlaylist) => {
         setIsImporting(true);
         try {
+            console.log("Starting import for playlist:", playlist);
             // First, get the full playlist details with videos
             const youtubeAPI = new YouTubeAPI();
             const fullPlaylist = await youtubeAPI.getPlaylist(playlist.id);
+            console.log("Full playlist details:", fullPlaylist);
             const videos = await youtubeAPI.getPlaylistVideos(playlist.id);
+            console.log("Playlist videos:", videos);
 
             // Create playlist in backend
+            console.log("Creating playlist in backend...");
             const playlistResponse = await api.post("/playlists", {
                 playlist: {
                     yt_id: fullPlaylist.id,
@@ -67,10 +73,26 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
                     video_count: fullPlaylist.videoCount
                 }
             });
+            console.log("Playlist created:", playlistResponse.data);
+
+            // Check if playlist already existed
+            const playlistAlreadyExists = playlistResponse.data.message?.includes("already exists");
+            if (playlistAlreadyExists) {
+                toast({
+                    title: "Playlist Already Exists",
+                    description: "This playlist is already in your library",
+                    variant: "default"
+                });
+            }
 
             // Create videos in backend
+            console.log("Creating videos in backend...");
+            let videosCreatedCount = 0;
+            let videosSkippedCount = 0;
+
             for (const video of videos) {
-                await api.post("/videos", {
+                console.log("Creating video:", video.title);
+                const videoResponse = await api.post("/videos", {
                     video: {
                         playlist_id: playlistResponse.data.data.id,
                         yt_id: video.id,
@@ -80,20 +102,32 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
                         position: video.position
                     }
                 });
+
+                if (videoResponse.data.message?.includes("already exists")) {
+                    videosSkippedCount++;
+                } else {
+                    videosCreatedCount++;
+                }
             }
+            console.log("All videos processed successfully");
+
+            const toastMessage = videosSkippedCount > 0
+                ? `${videosCreatedCount} new videos added (${videosSkippedCount} already existed)`
+                : `All ${videosCreatedCount} videos added`;
 
             toast({
                 title: "Playlist Imported!",
-                description: `${fullPlaylist.title} has been added to your library with ${videos.length} videos.`,
+                description: `${fullPlaylist.title} has been processed. ${toastMessage}`,
             });
 
             setIsOpen(false);
             onImportSuccess();
         } catch (error: any) {
             console.error("Import error:", error);
+            const errorMessage = error.response?.data?.message || error.response?.data?.errors?.yt_id?.[0] || "Failed to import playlist";
             toast({
                 title: "Import Error",
-                description: error.response?.data?.message || "Failed to import playlist",
+                description: errorMessage,
                 variant: "destructive"
             });
         } finally {

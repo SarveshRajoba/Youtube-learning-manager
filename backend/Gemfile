@@ -42,6 +42,16 @@ gem 'jsonapi-serializer'
 gem 'rack-cors'
 gem 'rack-attack'
 
+# Environment variables
+gem 'dotenv-rails', groups: [:development, :test]
+
+# YouTube API integration
+gem 'google-apis-youtube_v3'
+gem 'signet'
+
+#gemini integration
+
+
 
 
 

@@ -15,7 +15,8 @@ import {
   Filter,
   ExternalLink,
   MoreVertical,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,6 +24,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import api from "@/lib/api";
 
 interface Playlist {
@@ -41,16 +52,38 @@ const Playlists = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const categories = ["all", "Frontend", "Backend", "Programming", "Data Science"];
 
   const fetchPlaylists = async () => {
     try {
+      console.log("Fetching playlists...");
+      const token = localStorage.getItem("token");
+      console.log("Token exists:", !!token);
+
       const response = await api.get("/playlists");
-      setPlaylists(response.data.data || []);
+      console.log("Playlists response:", response.data);
+
+      // Handle JSONAPI format - extract attributes if present
+      const playlists = (response.data.data || []).map((item: any) => {
+        return item.attributes || item;
+      });
+      setPlaylists(playlists);
     } catch (error: any) {
       console.error("Error fetching playlists:", error);
+      if (error.response?.status === 401) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to view your playlists",
+          variant: "destructive"
+        });
+        window.location.href = "/login";
+        return;
+      }
       toast({
         title: "Error",
         description: "Failed to load playlists",
@@ -85,6 +118,36 @@ const Playlists = () => {
     fetchPlaylists(); // Refresh the playlists after import
   };
 
+  const handleDeleteClick = (playlist: Playlist) => {
+    setPlaylistToDelete(playlist);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!playlistToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await api.delete(`/playlists/${playlistToDelete.id}`);
+      toast({
+        title: "Success",
+        description: "Playlist deleted successfully",
+      });
+      setPlaylists(playlists.filter(p => p.id !== playlistToDelete.id));
+      setDeleteDialogOpen(false);
+      setPlaylistToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting playlist:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.errors || "Failed to delete playlist",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -109,7 +172,7 @@ const Playlists = () => {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Learning Playlists</h1>
             <p className="text-muted-foreground mt-2">
-              Manage and track your video learning playlists
+              Manage and track your video learning playlists. Go to Progress page to mark videos as complete.
             </p>
           </div>
           <YouTubeImportModal onImportSuccess={handleImportSuccess} />
@@ -167,7 +230,13 @@ const Playlists = () => {
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View on YouTube
                       </DropdownMenuItem>
-                      <DropdownMenuItem>Remove from Library</DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(playlist)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Playlist
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -224,6 +293,36 @@ const Playlists = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the playlist "{playlistToDelete?.title}".
+              This action cannot be undone. All progress and data associated with this playlist will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
