@@ -14,3 +14,9 @@
 # ActiveSupport::Inflector.inflections(:en) do |inflect|
 #   inflect.acronym "RESTful"
 # end
+
+# just special names in rails
+
+ActiveSupport::Inflector.inflections(:en) do |inflect|
+    inflect.acronym "OAuth"
+end

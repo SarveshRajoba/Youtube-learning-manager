@@ -16,22 +16,45 @@ class User < ApplicationRecord
 
   # OAuth: Find or create user from omniauth data
   def self.from_omniauth(auth)
-    where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
-      user.email = auth.info.email
-      user.name = auth.info.name
-      user.image = auth.info.image
-      user.provider = auth.provider
-      user.uid = auth.uid
+    # First, try to find user by provider and uid
+    user = where(provider: auth.provider, uid: auth.uid).first
+    
+    # If not found by OAuth, check if user exists with this email
+    if user.nil?
+      user = find_by(email: auth.info.email)
       
-      # Store YouTube OAuth tokens
-      user.yt_access_token = auth.credentials.token
-      user.yt_refresh_token = auth.credentials.refresh_token
-      user.token_expiry = Time.at(auth.credentials.expires_at) if auth.credentials.expires_at
-      
-      # Generate random password for OAuth users
-      user.password = SecureRandom.hex(20)
-      user.password_confirmation = user.password
+      if user
+        # Link OAuth to existing email/password account
+        user.update(
+          provider: auth.provider,
+          uid: auth.uid,
+          name: auth.info.name || user.name,
+          image: auth.info.image || user.image
+        )
+      else
+        # Create new OAuth user
+        user = create(
+          email: auth.info.email,
+          name: auth.info.name,
+          image: auth.info.image,
+          provider: auth.provider,
+          uid: auth.uid,
+          password: SecureRandom.hex(20),
+          password_confirmation: SecureRandom.hex(20)
+        )
+      end
     end
+    
+    # Update YouTube tokens for both new and existing users
+    if user.persisted?
+      user.update_youtube_tokens(
+        auth.credentials.token,
+        auth.credentials.refresh_token,
+        auth.credentials.expires_at
+      )
+    end
+    
+    user
   end
   
   # Update OAuth tokens for existing users

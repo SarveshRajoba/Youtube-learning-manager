@@ -23,6 +23,14 @@ Rails.application.routes.draw do
   post '/login', to: 'auth#login'
   post '/signup', to: 'auth#signup'
   
+  # OAuth endpoints
+  get '/auth/google', to: 'oauth/google_oauth2/auth#initiate'
+  namespace :oauth do
+    namespace :google_oauth2 do
+      get '/callback', to: 'auth#callback'
+    end
+  end
+  
   # Profile endpoints
   get '/profile', to: 'users/profile#show'
   patch '/profile', to: 'users/profile#update'
@@ -37,4 +45,6 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+
+
 end

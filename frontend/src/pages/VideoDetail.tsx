@@ -23,7 +23,10 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useVideoProgress } from "@/hooks/useVideoProgress";
 import api from "@/lib/api";
+import YouTubePlayer from "@/components/YouTubePlayer";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const VideoDetail = () => {
   const { id } = useParams();
@@ -34,6 +37,7 @@ const VideoDetail = () => {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [aiSummary, setAiSummary] = useState<any>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
 
   const fetchVideo = async () => {
     try {
@@ -92,12 +96,17 @@ const VideoDetail = () => {
     }
   }, [id]);
 
-  const handleMarkComplete = () => {
-    toast({
-      title: "Video completed!",
-      description: "Great job! Moving to the next video.",
-    });
-  };
+  const {
+    progress,
+    isCompleted,
+    updateProgress,
+    markComplete,
+    toggleComplete
+  } = useVideoProgress({
+    videoId: video?.id || "",
+    initialProgress: video?.watchProgress || 0,
+    initialCompleted: video?.completed || false,
+  });
 
   const handleSetGoal = () => {
     toast({
@@ -120,6 +129,16 @@ const VideoDetail = () => {
     });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!video) return null;
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -139,7 +158,7 @@ const VideoDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Video Player Placeholder */}
+            {/* Video Thumbnail with Action Buttons */}
             <Card className="overflow-hidden">
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 <img
@@ -147,12 +166,38 @@ const VideoDetail = () => {
                   alt={video.title}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <Button size="lg" className="gap-2">
-                    <Play className="h-6 w-6" />
-                    {video.watchProgress > 0 ? "Continue" : "Start"} Video
-                  </Button>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col items-center justify-center gap-4">
+                  <div className="flex gap-3">
+                    {/* Watch Here Button - Opens Modal with Embedded Player */}
+                    <Button 
+                      size="lg" 
+                      className="gap-2 text-base px-6 py-6 h-auto shadow-xl"
+                      onClick={() => setIsWatchModalOpen(true)}
+                    >
+                      <Play className="h-6 w-6" />
+                      Watch Here
+                    </Button>
+                    
+                    {/* Open in YouTube Button - Redirects to YouTube */}
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      className="gap-2 text-base px-6 py-6 h-auto bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 text-white shadow-xl"
+                      onClick={() => window.open(`https://www.youtube.com/watch?v=${video.yt_id}`, '_blank')}
+                    >
+                      <ExternalLink className="h-6 w-6" />
+                      Open in YouTube
+                    </Button>
+                  </div>
+                  
+                  {video.watchProgress > 0 && (
+                    <p className="text-white font-medium text-sm bg-black/60 px-4 py-2 rounded-full">
+                      {video.watchProgress}% Complete
+                    </p>
+                  )}
                 </div>
+                
+                {/* Progress Bar */}
                 {video.watchProgress > 0 && (
                   <div className="absolute bottom-0 left-0 right-0">
                     <Progress value={video.watchProgress} className="h-1 rounded-none" />
@@ -160,6 +205,33 @@ const VideoDetail = () => {
                 )}
               </div>
             </Card>
+
+            {/* Watch Here Modal - Embedded Player for Progress Tracking */}
+            <Dialog open={isWatchModalOpen} onOpenChange={setIsWatchModalOpen}>
+              <DialogContent className="max-w-6xl w-[95vw] p-0 bg-black border-none">
+                <div className="relative aspect-video w-full bg-black">
+                  <YouTubePlayer
+                    videoId={video.yt_id}
+                    onProgressUpdate={updateProgress}
+                    onVideoEnd={markComplete}
+                    initialProgress={video.watchProgress}
+                  />
+                </div>
+                <div className="p-4 bg-background border-t">
+                  <div className="flex justify-between items-center">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <h3 className="font-semibold text-lg truncate">{video.title}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Progress: {progress}%{isCompleted && " • Completed ✓"}
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setIsWatchModalOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Video Info */}
             <div className="space-y-4">
@@ -206,14 +278,14 @@ const VideoDetail = () => {
               </p>
 
               <div className="flex flex-wrap gap-2">
-                {video.tags.map(tag => (
+                {video.tags.map((tag: string) => (
                   <Badge key={tag} variant="outline">{tag}</Badge>
                 ))}
               </div>
             </div>
 
             {/* AI Summary */}
-            {video.aiSummary.available && (
+            {video.aiSummary?.available && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -226,7 +298,7 @@ const VideoDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {video.aiSummary.keyPoints.map((point, index) => (
+                    {video.aiSummary.keyPoints.map((point: string, index: number) => (
                       <div key={index} className="flex items-start gap-3">
                         <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
                         <p className="text-sm text-muted-foreground">{point}</p>
@@ -275,19 +347,19 @@ const VideoDetail = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Watch Progress</span>
-                    <span>{video.watchProgress}%</span>
+                    <span>{progress}%</span>
                   </div>
-                  <Progress value={video.watchProgress} className="h-3" />
+                  <Progress value={progress} className="h-3" />
                 </div>
 
                 <div className="space-y-2 pt-4 border-t">
                   <Button
-                    onClick={handleMarkComplete}
+                    onClick={toggleComplete}
                     className="w-full gap-2"
-                    variant={video.completed ? "outline" : "default"}
+                    variant={isCompleted ? "outline" : "default"}
                   >
                     <CheckCircle className="h-4 w-4" />
-                    {video.completed ? "Mark Incomplete" : "Mark Complete"}
+                    {isCompleted ? "Mark Incomplete" : "Mark Complete"}
                   </Button>
 
                   <Button onClick={handleSetGoal} variant="outline" className="w-full gap-2">

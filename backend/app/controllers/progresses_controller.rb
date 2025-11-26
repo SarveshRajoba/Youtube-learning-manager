@@ -14,9 +14,14 @@ class ProgressesController < ApiController
 
   # POST /progresses
   def create
-    progress = current_user.progresses.new(progress_params)
+    # Find existing progress for this video or initialize new one
+    progress = current_user.progresses.find_or_initialize_by(video_id: progress_params[:video_id])
+    
+    # Update attributes
+    progress.assign_attributes(progress_params)
+    
     if progress.save
-      render json: ProgressSerializer.new(progress).serializable_hash, status: :created
+      render json: ProgressSerializer.new(progress).serializable_hash, status: :ok
     else
       render json: progress.errors, status: :unprocessable_entity
     end

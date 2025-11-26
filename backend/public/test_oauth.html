@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4285f4;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #357ae8;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-left: 4px solid #4285f4;
+            border-radius: 4px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Google OAuth Test</h1>
+        <p>Click the button below to test your Google OAuth integration:</p>
+        
+        <a href="/oauth/google_oauth2" class="btn">
+            🔑 Sign in with Google
+        </a>
+        
+        <div class="info">
+            <h3>What happens next:</h3>
+            <ol>
+                <li>You'll be redirected to Google's login page</li>
+                <li>After authorizing, Google redirects back to your app</li>
+                <li>You'll be redirected to: <code>http://localhost:8080/auth/callback?token=...</code></li>
+                <li>Check the URL for the JWT token!</li>
+            </ol>
+            
+            <h3>Expected Result:</h3>
+            <p>You should see a URL like:</p>
+            <code style="display: block; margin-top: 10px; padding: 10px; word-break: break-all;">
+                http://localhost:8080/auth/callback?token=eyJhbGciOiJIUzI1NiJ9...
+            </code>
+        </div>
+    </div>
+</body>
+</html>

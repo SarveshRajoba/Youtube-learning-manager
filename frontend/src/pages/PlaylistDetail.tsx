@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import YouTubePlayer from "@/components/YouTubePlayer";
 
 interface Note {
   id: string;
@@ -92,6 +94,9 @@ const PlaylistDetail = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState("");
   const [aiSummary, setAiSummary] = useState<any>(null);
+  const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
+  const [watchingVideo, setWatchingVideo] = useState<Video | null>(null);
+  const [currentVideoProgress, setCurrentVideoProgress] = useState(0);
   const { toast } = useToast();
 
   const fetchPlaylist = async () => {
@@ -907,13 +912,29 @@ const PlaylistDetail = () => {
                     {updatingVideos.has(video.id) ? (
                       <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`https://www.youtube.com/watch?v=${video.yt_id}&list=${playlist.yt_id}`, '_blank')}
-                      >
-                        {video.progress?.completed ? "Rewatch" : video.progress?.completion_pct && video.progress.completion_pct > 0 ? "Continue" : "Watch"}
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="gap-1"
+                          onClick={() => {
+                            setWatchingVideo(video);
+                            setIsWatchModalOpen(true);
+                          }}
+                        >
+                          <Play className="h-3 w-3" />
+                          Watch Here
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => window.open(`https://www.youtube.com/watch?v=${video.yt_id}&list=${playlist.yt_id}`, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View on YT
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -921,6 +942,57 @@ const PlaylistDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Watch Here Modal */}
+        {watchingVideo && isWatchModalOpen && (
+          <Dialog open={isWatchModalOpen} onOpenChange={setIsWatchModalOpen}>
+            <DialogContent className="max-w-6xl w-[95vw] p-0 bg-black border-none">
+              <div className="relative aspect-video w-full bg-black">
+                <YouTubePlayer
+                  videoId={watchingVideo.yt_id}
+                  onProgressUpdate={(progress) => {
+                    setCurrentVideoProgress(progress);
+                  }}
+                  onVideoEnd={() => {
+                    // Don't auto-close, just let it finish playing
+                  }}
+                  initialProgress={watchingVideo.progress?.completion_pct || 0}
+                />
+              </div>
+              <div className="p-4 bg-background border-t">
+                <div className="flex justify-between items-center">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <h3 className="font-semibold text-lg truncate">{watchingVideo.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Progress: {Math.round(currentVideoProgress)}% • From: {playlist.title}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={async () => {
+                      // Auto-mark complete if watched >= 90%
+                      if (currentVideoProgress >= 90 && watchingVideo && !watchingVideo.progress?.completed) {
+                        await handleVideoToggle(watchingVideo, true);
+                        toast({
+                          title: "Video Completed! ✓",
+                          description: `Marked "${watchingVideo.title}" as complete`,
+                        });
+                      }
+                      
+                      setIsWatchModalOpen(false);
+                      setWatchingVideo(null);
+                      setCurrentVideoProgress(0);
+                      // Refresh playlist to get updated progress
+                      await fetchPlaylist();
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );
