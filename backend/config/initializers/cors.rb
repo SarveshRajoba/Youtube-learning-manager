@@ -7,11 +7,7 @@
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-<<<<<<< HEAD
     origins "http://localhost:8080", "http://localhost:8081", "http://localhost:8082", "https://youtube-learning-manager.vercel.app", "http://localhost:5173"
-=======
-    origins "http://localhost:8080", "http://localhost:8081", "http://localhost:8082",  "https://youtube-learning-manager.vercel.app", "http://localhost:5173"
->>>>>>> 8cb4a9ba41c792924d79ed12b2a98669bae842d4
 
     resource "*",
       headers: :any,
