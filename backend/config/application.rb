@@ -43,6 +43,9 @@ module Backend
 
     # Add session middleware for Devise authentication
     config.middleware.use ActionDispatch::Cookies
-    config.middleware.use ActionDispatch::Session::CookieStore
+    config.middleware.use ActionDispatch::Session::CookieStore, 
+      key: '_youtube_learning_manager_session',
+      same_site: :none, 
+      secure: true
   end
 end
