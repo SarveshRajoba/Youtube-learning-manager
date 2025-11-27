@@ -108,47 +108,41 @@ class AiSummariesController < ApiController
     
     playlist = current_user.playlists.find(playlist_id)
     
-    # Generate AI summary for playlist using Gemini API
+    # Generate AI summary using Service
     begin
-      summary_data = generate_playlist_summary_simple(playlist)
+      service = PlaylistSummarizerService.new(playlist.yt_id) # Use external playlist_id
+      result = service.call
       
-      # Check if a summary already exists for this playlist
-      existing_summary = AiSummary.find_by(playlist_id: playlist.id)
+      if result[:error]
+        return render json: { error: result[:error] }, status: :unprocessable_entity
+      end
+
+      summary_data = result[:summary]
       
-      if existing_summary
-        # Update existing summary
-        existing_summary.update!(
+      # Use a transaction block with locking to prevent race conditions
+      ai_summary = AiSummary.transaction do
+        # Find or initialize to prevent duplicates
+        summary = AiSummary.lock.find_or_initialize_by(playlist_id: playlist.id)
+        
+        summary.assign_attributes(
+          video_id: nil,
           title: "#{playlist.title} - Playlist Summary",
           summary_text: summary_data[:summary],
-          key_points: summary_data[:key_topics].to_json,
+          key_points: (summary_data[:key_topics] || []).to_json,
           tags: {
             total_videos: summary_data[:total_videos],
             total_time: summary_data[:total_time],
             estimated_total_likes: summary_data[:estimated_total_likes],
-            target_audience: summary_data[:target_audience]
+            target_audience: summary_data[:target_audience],
+            difficulty_level: summary_data[:difficulty_level]
           }.to_json,
-          confidence: 85,
-          generated_at: Time.current
-        )
-        ai_summary = existing_summary
-      else
-        # Create new summary
-        ai_summary = AiSummary.create!(
-          playlist: playlist,
-          video_id: nil, # Playlist summaries don't have a specific video
-          title: "#{playlist.title} - Playlist Summary",
-          summary_text: summary_data[:summary],
-          key_points: summary_data[:key_topics].to_json,
-          tags: {
-            total_videos: summary_data[:total_videos],
-            total_time: summary_data[:total_time],
-            estimated_total_likes: summary_data[:estimated_total_likes],
-            target_audience: summary_data[:target_audience]
-          }.to_json,
-          confidence: 85,
+          confidence: summary_data[:confidence] || 85,
           is_bookmarked: false,
           generated_at: Time.current
         )
+        
+        summary.save!
+        summary
       end
       
       serialized = AiSummarySerializer.new(ai_summary).serializable_hash[:data]
@@ -162,6 +156,8 @@ class AiSummariesController < ApiController
       render json: { 
         data: flattened_data
       }, status: :ok
+    rescue ActiveRecord::RecordInvalid => e
+      render json: { error: e.message }, status: :unprocessable_entity
     rescue => e
       Rails.logger.error "Playlist summary error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
@@ -234,127 +230,7 @@ class AiSummariesController < ApiController
       }
     end
 
-    def generate_playlist_summary_simple(playlist)
-      require 'net/http'
-      require 'json'
-      require 'uri'
-      
-      gemini_api_key = ENV['GEMINI_API_KEY']
-      
-      unless gemini_api_key
-        Rails.logger.error "GEMINI_API_KEY environment variable is not set"
-        raise "GEMINI_API_KEY not set in environment variables"
-      end
 
-      # Calculate playlist statistics
-      total_videos = playlist.video_count || playlist.videos.count
-      total_duration_seconds = playlist.videos.sum(:duration) || 0
-      total_duration_formatted = format_duration(total_duration_seconds)
-      
-      # Prepare playlist information for Gemini
-      video_titles = playlist.videos.order(:position).limit(20).pluck(:title)
-      
-      prompt = <<~PROMPT
-      Analyze this YouTube playlist and provide information in JSON format.
-      
-      Playlist Title: #{playlist.title}
-      Total Videos: #{total_videos}
-      Total Duration: #{total_duration_formatted}
-      
-      Video Titles:
-      #{video_titles.map.with_index { |title, i| "#{i + 1}. #{title}" }.join("\n")}
-      
-      Provide a JSON response with this exact structure:
-      {
-        "summary": "A concise 150-200 word summary covering what this playlist teaches, who it's best for, key topics, and learning value. Keep it short and informative.",
-        "total_videos": #{total_videos},
-        "total_time": "#{total_duration_formatted}",
-        "estimated_total_likes": "Provide an estimated range of total likes across all videos (e.g., '50K-100K', '100K-500K', etc.) based on typical engagement patterns for educational content, or 'N/A' if unable to estimate",
-        "key_topics": ["topic1", "topic2", "topic3"],
-        "target_audience": "Brief description of who this playlist is best for"
-      }
-      
-      IMPORTANT: Respond ONLY with valid JSON, no additional text before or after.
-      PROMPT
-
-      # Call Gemini API - using gemini-2.0-flash model like the example
-      url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=#{URI.encode_www_form_component(gemini_api_key)}"
-      uri = URI(url)
-      
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      http.read_timeout = 60
-      
-      request = Net::HTTP::Post.new(uri.request_uri)
-      request['Content-Type'] = 'application/json'
-      
-      # Simplified request body matching the example format
-      request_body = {
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      }
-      
-      request.body = request_body.to_json
-      
-      Rails.logger.info "Calling Gemini API..."
-      Rails.logger.info "URL: #{uri.to_s.split('?').first}?key=***"
-      
-      response = http.request(request)
-      
-      Rails.logger.info "Gemini API response code: #{response.code}"
-      Rails.logger.info "Gemini API response: #{response.body[0..500]}"
-      
-      # Check if response was successful
-      unless response.code.to_i == 200
-        error_body = JSON.parse(response.body) rescue response.body
-        Rails.logger.error "Gemini API call failed: #{response.code} - #{error_body}"
-        raise "Gemini API error (#{response.code}): #{error_body.is_a?(Hash) && error_body['error'] ? error_body['error']['message'] : error_body}"
-      end
-
-      result = JSON.parse(response.body)
-      
-      # Use dig method for safer response parsing (matching example pattern)
-      text_content = result.dig('candidates', 0, 'content', 'parts', 0, 'text')
-      
-      # Check if we got a valid response
-      unless text_content && !text_content.empty?
-        Rails.logger.error "No valid response text from Gemini API. Response: #{result.inspect}"
-        raise "Unexpected response format from Gemini API"
-      end
-
-      # Extract JSON from response (Gemini might add markdown code blocks)
-      json_match = text_content.match(/\{[\s\S]*\}/)
-      if json_match
-        parsed_data = JSON.parse(json_match[0])
-        
-        # Merge with calculated values to ensure consistency
-        {
-          summary: parsed_data['summary'] || text_content.strip,
-          total_videos: parsed_data['total_videos'] || total_videos,
-          total_time: parsed_data['total_time'] || total_duration_formatted,
-          estimated_total_likes: parsed_data['estimated_total_likes'] || 'N/A',
-          key_topics: parsed_data['key_topics'] || [],
-          target_audience: parsed_data['target_audience'] || 'General learners'
-        }
-      else
-        # Fallback if JSON parsing fails
-        {
-          summary: text_content.strip,
-          total_videos: total_videos,
-          total_time: total_duration_formatted,
-          estimated_total_likes: 'N/A',
-          key_topics: [],
-          target_audience: 'General learners'
-        }
-      end
-    rescue => e
-      Rails.logger.error "Error generating playlist summary: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      raise e
-    end
 
     def extract_playlist_id(url)
       # Handle various YouTube playlist URL formats

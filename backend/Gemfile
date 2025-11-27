@@ -51,6 +51,7 @@ gem 'google-apis-youtube_v3'
 gem 'signet'
 
 #gemini integration
+gem 'faraday'
 
 
 #oauth 

@@ -401,6 +401,7 @@ DEPENDENCIES
   debug
   devise
   dotenv-rails
+  faraday
   google-apis-youtube_v3
   jsonapi-serializer
   jwt
