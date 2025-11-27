@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: youtube-learning-manager-backend
+    runtime: ruby
+    buildCommand: "./bin/render-build.sh"
+    startCommand: "bundle exec puma -C config/puma.rb"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: RAILS_MASTER_KEY
+        sync: false
+    region: oregon
+    plan: free
+    rootDir: backend
