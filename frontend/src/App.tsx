@@ -17,6 +17,8 @@ import Summaries from "./pages/Summaries";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/OAuthCallback";
 import OAuthFailure from "./pages/OAuthFailure";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/summaries" element={<Summaries />} />
             <Route path="/auth/callback" element={<OAuthCallback />} />
             <Route path="/auth/failure" element={<OAuthFailure />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
