@@ -82,7 +82,8 @@ const Navigation = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
                 <PlayCircle className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span>Youtube Learning Manager</span>
+              <span className="hidden sm:inline-block">Youtube Learning Manager</span>
+              <span className="sm:hidden font-bold">YLM</span>
             </Link>
 
             {/* Desktop Navigation */}

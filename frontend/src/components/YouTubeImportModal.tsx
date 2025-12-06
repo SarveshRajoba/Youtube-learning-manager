@@ -195,15 +195,15 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
                             <div className="grid gap-4">
                                 {searchResults.map((playlist) => (
                                     <Card key={playlist.id} className="overflow-hidden">
-                                        <div className="flex gap-4">
+                                        <div className="flex flex-col sm:flex-row gap-4">
                                             <img
                                                 src={playlist.thumbnailUrl}
                                                 alt={playlist.title}
-                                                className="w-32 h-20 object-cover rounded"
+                                                className="w-full h-48 sm:w-32 sm:h-20 object-cover"
                                             />
                                             <div className="flex-1 p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
+                                                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                                                    <div className="flex-1 w-full">
                                                         <h4 className="font-medium text-foreground mb-1">
                                                             {playlist.title}
                                                         </h4>
@@ -212,17 +212,12 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
                                                                 {playlist.description}
                                                             </p>
                                                         )}
-                                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1">
-                                                                <PlayCircle className="h-4 w-4" />
-                                                                {playlist.videoCount} videos
-                                                            </span>
-                                                        </div>
                                                     </div>
-                                                    <div className="flex gap-2">
+                                                    <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
+                                                            className="flex-1 sm:flex-none"
                                                             onClick={() => window.open(`https://www.youtube.com/playlist?list=${playlist.id}`, '_blank')}
                                                         >
                                                             <ExternalLink className="h-4 w-4 mr-1" />
@@ -230,6 +225,7 @@ const YouTubeImportModal = ({ onImportSuccess }: YouTubeImportModalProps) => {
                                                         </Button>
                                                         <Button
                                                             size="sm"
+                                                            className="flex-1 sm:flex-none"
                                                             onClick={() => handleImport(playlist)}
                                                             disabled={isImporting}
                                                         >
