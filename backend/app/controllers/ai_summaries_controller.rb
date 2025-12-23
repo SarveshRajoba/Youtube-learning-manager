@@ -400,8 +400,8 @@ class AiSummariesController < ApiController
       Be analytical, honest, and helpful. Focus on information someone would need to know BEFORE committing time to watch this playlist.
       PROMPT
 
-      # Call Gemini API - using gemini-2.0-flash model like the example
-      url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=#{URI.encode_www_form_component(gemini_api_key)}"
+      # Call Gemini API - using gemini-flash-latest model which is verified to work
+      url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=#{URI.encode_www_form_component(gemini_api_key)}"
       uri = URI(url)
       
       http = Net::HTTP.new(uri.host, uri.port)

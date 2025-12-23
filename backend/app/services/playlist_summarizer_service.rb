@@ -33,6 +33,8 @@ class PlaylistSummarizerService
     
     # 3. Generate Summary via Gemini
     summary_data = generate_gemini_summary(playlist_details, videos, total_videos < 20)
+    
+    return { error: summary_data[:error] } if summary_data[:error]
 
     # 4. Return formatted data
     {
@@ -247,8 +249,8 @@ class PlaylistSummarizerService
       PROMPT
     end
 
-    # Call Gemini API
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=#{URI.encode_www_form_component(@gemini_api_key)}"
+    # Call Gemini API - using gemini-flash-latest model which is verified to work
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=#{URI.encode_www_form_component(@gemini_api_key)}"
     uri = URI(url)
     
     http = Net::HTTP.new(uri.host, uri.port)
@@ -263,7 +265,12 @@ class PlaylistSummarizerService
         parts: [{
           text: prompt
         }]
-      }]
+      }],
+      generationConfig: {
+        temperature: 0.8,        # High creativity for engaging summaries
+        topP: 0.95,
+        maxOutputTokens: 8192
+      }
     }
     
     request.body = request_body.to_json
@@ -282,6 +289,27 @@ class PlaylistSummarizerService
       return { error: "Empty response from Gemini" }
     end
 
+    # Calculate dynamic confidence score
+    videos_sampled = videos.size
+    total_videos_count = playlist_info[:total_videos]
+    coverage_ratio = [videos_sampled.to_f / total_videos_count, 1.0].min
+    
+    # Check transcript success rate
+    transcripts_found = has_transcripts ? videos.count { |v| v[:transcript].present? } : 0
+    transcript_success_rate = videos_sampled > 0 ? (transcripts_found.to_f / videos_sampled) : 0
+    
+    # Base confidence depends on whether we have transcripts
+    base_confidence = has_transcripts ? 90 : 70
+    
+    # Adjust based on coverage (full playlist = +10, partial = proportional)
+    coverage_bonus = (coverage_ratio * 10).round
+    
+    # Adjust based on transcript success rate (if applicable)
+    transcript_bonus = has_transcripts ? (transcript_success_rate * 5).round : 0
+    
+    # Calculate final confidence (cap at 98)
+    calculated_confidence = [base_confidence + coverage_bonus + transcript_bonus, 98].min
+    
     # Extract JSON
     json_match = text_content.match(/\{[\s\S]*\}/)
     if json_match
@@ -295,7 +323,7 @@ class PlaylistSummarizerService
         key_topics: parsed_data['key_topics'] || [],
         target_audience: parsed_data['target_audience'] || 'General learners',
         difficulty_level: parsed_data['difficulty_level'],
-        confidence: has_transcripts ? 95 : 75
+        confidence: calculated_confidence
       }
     else
       {
@@ -305,7 +333,7 @@ class PlaylistSummarizerService
         estimated_total_likes: estimated_likes,
         key_topics: [],
         target_audience: 'General learners',
-        confidence: has_transcripts ? 85 : 70
+        confidence: calculated_confidence - 10  # Lower if JSON parsing failed
       }
     end
   end
