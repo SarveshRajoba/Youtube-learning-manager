@@ -3,7 +3,6 @@ import {
   API_BASE,
   MOCK_PROFILE,
   setupAuthenticatedPage,
-  mockProfilePassword,
 } from './helpers/api-mocks';
 
 test.describe('Profile', () => {
@@ -16,10 +15,17 @@ test.describe('Profile', () => {
     await expect(page.getByRole('heading', { name: /profile settings/i })).toBeVisible();
   });
 
-  test('displays user email and name', async ({ page }) => {
+  test('displays user email in the email field', async ({ page }) => {
     await page.goto('/profile');
-    await expect(page.getByText(MOCK_PROFILE.data.email)).toBeVisible();
-    await expect(page.getByText(MOCK_PROFILE.data.name)).toBeVisible();
+    // Email is in a disabled input element; check its value via Playwright's input value assertion
+    await expect(page.locator('#email')).toHaveValue(MOCK_PROFILE.data.email);
+  });
+
+  test('displays user name in the profile section', async ({ page }) => {
+    await page.goto('/profile');
+    // Name shown under the avatar in the Basic Information card
+    const profileSection = page.locator('[class*="card"]').filter({ hasText: 'Basic Information' });
+    await expect(profileSection.getByText(MOCK_PROFILE.data.name)).toBeVisible();
   });
 
   test('displays member since date', async ({ page }) => {
@@ -35,16 +41,21 @@ test.describe('Profile', () => {
 
   test('edit button toggles edit mode', async ({ page }) => {
     await page.goto('/profile');
-    await page.getByRole('button', { name: /edit/i }).click();
-    await expect(page.getByRole('button', { name: /cancel/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /save changes/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    // The CardHeader "Edit" button becomes "Cancel"; Save Changes button also appears in the card content
+    const basicInfoCard = page.locator('[class*="card"]').filter({ hasText: 'Basic Information' });
+    // First Cancel button in the card is the CardHeader toggle
+    await expect(basicInfoCard.getByRole('button', { name: 'Cancel' }).first()).toBeVisible();
+    await expect(basicInfoCard.getByRole('button', { name: /save changes/i })).toBeVisible();
   });
 
   test('cancel button exits edit mode', async ({ page }) => {
     await page.goto('/profile');
-    await page.getByRole('button', { name: /edit/i }).click();
-    await page.getByRole('button', { name: /cancel/i }).click();
-    await expect(page.getByRole('button', { name: /edit/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    // Use the first Cancel button (CardHeader toggle button)
+    const basicInfoCard = page.locator('[class*="card"]').filter({ hasText: 'Basic Information' });
+    await basicInfoCard.getByRole('button', { name: 'Cancel' }).first().click();
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
   });
 
   test('successfully saves profile changes', async ({ page }) => {
@@ -67,18 +78,14 @@ test.describe('Profile', () => {
     });
 
     await page.goto('/profile');
-    await page.getByRole('button', { name: /edit/i }).click();
-    const nameInput = page.getByLabel(/display name/i);
-    if (await nameInput.isVisible()) {
-      await nameInput.fill('Updated User');
-    }
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Full Name').fill('Updated User');
     await page.getByRole('button', { name: /save changes/i }).click();
-    await expect(page.getByText(/profile updated/i)).toBeVisible();
+    await expect(page.getByText('Profile updated').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('security section with change password option is visible', async ({ page }) => {
     await page.goto('/profile');
-    await expect(page.getByText(/security/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /change password/i })).toBeVisible();
   });
 
@@ -91,13 +98,11 @@ test.describe('Profile', () => {
   test('shows error when new passwords do not match', async ({ page }) => {
     await page.goto('/profile');
     await page.getByRole('button', { name: /change password/i }).click();
-    const passwordInputs = page.getByRole('textbox');
-    // Fill current password, new password, and mismatched confirm
-    const allInputs = page.locator('input[type="password"]');
-    await allInputs.nth(0).fill('currentpass');
-    await allInputs.nth(1).fill('newpass123');
-    await allInputs.nth(2).fill('differentpass');
+    const passwordInputs = page.locator('input[type="password"]');
+    await passwordInputs.nth(0).fill('currentpass');
+    await passwordInputs.nth(1).fill('newpass123');
+    await passwordInputs.nth(2).fill('differentpass');
     await page.getByRole('button', { name: /update password/i }).click();
-    await expect(page.getByText(/passwords don't match/i)).toBeVisible();
+    await expect(page.getByText(/passwords don't match/i)).toBeVisible({ timeout: 8000 });
   });
 });

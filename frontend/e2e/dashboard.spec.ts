@@ -20,7 +20,9 @@ test.describe('Dashboard', () => {
     const { stats } = MOCK_DASHBOARD_STATS.data;
     await expect(page.getByText(`${stats.completed_videos}/${stats.total_videos}`)).toBeVisible();
     await expect(page.getByText(stats.total_watch_time)).toBeVisible();
-    await expect(page.getByText(String(stats.active_goals))).toBeVisible();
+    // Scope active goals count to its card to avoid ambiguous selectors
+    const activeGoalsCard = page.locator('[class*="card"]').filter({ hasText: 'Active Goals' });
+    await expect(activeGoalsCard.getByText(String(stats.active_goals), { exact: true })).toBeVisible();
   });
 
   test('displays recent activity section', async ({ page }) => {
@@ -53,7 +55,6 @@ test.describe('Dashboard', () => {
   test('quick action links navigate to the correct pages', async ({ page }) => {
     await setupAuthenticatedPage(page);
     await mockDashboardStats(page);
-    // Mock playlists for the /playlists redirect
     await page.route(`${API_BASE}/playlists`, (route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
     });
@@ -75,6 +76,13 @@ test.describe('Dashboard', () => {
     await expect(page).toHaveURL('/playlists');
   });
 
+  test('/dashboard route also renders the dashboard', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByText('Videos Completed')).toBeVisible();
+  });
+});
+
+test.describe('Dashboard - Unauthenticated', () => {
   test('unauthenticated user is redirected to login on 401', async ({ page }) => {
     await page.route(`${API_BASE}/dashboard/stats`, (route) => {
       route.fulfill({
@@ -83,14 +91,21 @@ test.describe('Dashboard', () => {
         body: JSON.stringify({ error: 'Unauthorized' }),
       });
     });
+    await page.route(`${API_BASE}/profile`, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'u1', email: 'x@x.com', name: 'X' } }),
+      });
+    });
 
-    await page.goto('/');
-    await page.waitForURL('/login');
+    // The api.ts 401 interceptor calls window.location.href="/login" which may abort goto.
+    // Use Promise.race so we catch either the URL change or the goto completing.
+    const [gotoResult] = await Promise.allSettled([
+      page.goto('/'),
+      page.waitForURL('**/login', { timeout: 10000 }),
+    ]);
+
     await expect(page).toHaveURL('/login');
-  });
-
-  test('/dashboard route also renders the dashboard', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page.getByText('Videos Completed')).toBeVisible();
   });
 });

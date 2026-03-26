@@ -22,24 +22,25 @@ test.describe('Navigation', () => {
 
   test('nav links are present for all main sections', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /playlists/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /progress/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /goals/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /ai summaries/i })).toBeVisible();
+    const nav = page.locator('nav');
+    await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Playlists' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Progress' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Goals' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'AI Summaries' })).toBeVisible();
   });
 
   test('clicking Playlists nav link navigates to /playlists', async ({ page }) => {
     await mockPlaylists(page);
     await page.goto('/');
-    await page.getByRole('link', { name: /playlists/i }).click();
+    await page.locator('nav').getByRole('link', { name: 'Playlists' }).click();
     await expect(page).toHaveURL('/playlists');
   });
 
   test('clicking Progress nav link navigates to /progress', async ({ page }) => {
     await mockPlaylists(page);
     await page.goto('/');
-    await page.getByRole('link', { name: /progress/i }).click();
+    await page.locator('nav').getByRole('link', { name: 'Progress' }).click();
     await expect(page).toHaveURL('/progress');
   });
 
@@ -47,7 +48,7 @@ test.describe('Navigation', () => {
     await mockGoals(page);
     await mockPlaylists(page);
     await page.goto('/');
-    await page.getByRole('link', { name: /goals/i }).click();
+    await page.locator('nav').getByRole('link', { name: 'Goals' }).click();
     await expect(page).toHaveURL('/goals');
   });
 
@@ -55,14 +56,14 @@ test.describe('Navigation', () => {
     await mockSummaries(page);
     await mockPlaylists(page);
     await page.goto('/');
-    await page.getByRole('link', { name: /ai summaries/i }).click();
+    await page.locator('nav').getByRole('link', { name: 'AI Summaries' }).click();
     await expect(page).toHaveURL('/summaries');
   });
 
   test('logo link navigates to dashboard', async ({ page }) => {
     await mockPlaylists(page);
     await page.goto('/playlists');
-    await page.getByRole('link', { name: /youtube learning manager/i }).click();
+    await page.locator('nav').getByRole('link', { name: /youtube learning manager/i }).click();
     await expect(page).toHaveURL('/dashboard');
   });
 
@@ -111,11 +112,12 @@ test.describe('Navigation', () => {
   test('OAuth callback page redirects on missing params', async ({ page }) => {
     await page.goto('/auth/callback');
     // Should redirect somewhere (likely login) since no token param
-    await page.waitForURL((url) => !url.pathname.startsWith('/auth'));
+    await page.waitForURL((url) => !url.pathname.startsWith('/auth'), { timeout: 8000 });
   });
 
-  test('OAuth failure page renders', async ({ page }) => {
+  test('OAuth failure page shows authentication failed message', async ({ page }) => {
     await page.goto('/auth/failure');
-    await expect(page.getByText(/failed/i).or(page.getByText(/error/i)).or(page.getByText(/login/i))).toBeVisible();
+    await expect(page.getByRole('heading', { name: /authentication failed/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /return to login/i })).toBeVisible();
   });
 });

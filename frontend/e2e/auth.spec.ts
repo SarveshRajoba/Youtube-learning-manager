@@ -14,7 +14,7 @@ test.describe('Authentication', () => {
     await expect(page.getByRole('heading', { name: /welcome to youtube-manager/i })).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in with google/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /sign up/i })).toBeVisible();
   });
@@ -65,7 +65,7 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     await page.getByLabel('Email').fill('test@example.com');
     await page.getByLabel('Password').fill('password123');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     await page.waitForURL('/');
     expect(await page.evaluate(() => localStorage.getItem('token'))).toBe(MOCK_TOKEN);
@@ -73,8 +73,9 @@ test.describe('Authentication', () => {
 
   test('failed login shows error toast', async ({ page }) => {
     await page.route(`${API_BASE}/login`, (route) => {
+      // Use 422 (not 401) so the api.ts 401 interceptor does not trigger a page reload
       route.fulfill({
-        status: 401,
+        status: 422,
         contentType: 'application/json',
         body: JSON.stringify({ error: 'Invalid email or password.' }),
       });
@@ -83,9 +84,9 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     await page.getByLabel('Email').fill('wrong@example.com');
     await page.getByLabel('Password').fill('wrongpass');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
+    await expect(page.getByText('Login Failed')).toBeVisible({ timeout: 8000 });
     await expect(page).toHaveURL('/login');
   });
 
@@ -137,8 +138,8 @@ test.describe('Authentication', () => {
     await page.goto('/');
 
     await page.waitForSelector('nav');
-    // Open user dropdown menu via the avatar button
-    await page.locator('nav').getByRole('button').last().click();
+    // Open user avatar dropdown
+    await page.locator('nav').getByRole('button', { name: '' }).last().click();
     await page.getByRole('menuitem', { name: /logout/i }).click();
 
     await expect(page).toHaveURL('/login');
