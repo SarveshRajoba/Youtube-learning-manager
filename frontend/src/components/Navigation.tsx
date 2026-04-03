@@ -60,7 +60,7 @@ const Navigation = () => {
   const avatarInitial = displayName.charAt(0).toUpperCase();
 
   const navItems = [
-    { href: "/", label: "Dashboard", icon: BarChart3 },
+    { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
     { href: "/playlists", label: "Playlists", icon: PlayCircle },
     { href: "/progress", label: "Progress", icon: BookOpen },
     { href: "/goals", label: "Goals", icon: Target },

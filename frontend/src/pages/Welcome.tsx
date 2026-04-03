@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, BookOpen, Target, TrendingUp, Sparkles } from "lucide-react";
 
@@ -26,6 +27,14 @@ const features = [
 ];
 
 const Welcome = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (localStorage.getItem("token")) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-accent/20 to-primary/5">
       {/* Navbar */}
