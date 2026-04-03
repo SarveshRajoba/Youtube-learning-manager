@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import Welcome from "./pages/Welcome";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Playlists from "./pages/Playlists";
@@ -30,7 +31,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Welcome />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
