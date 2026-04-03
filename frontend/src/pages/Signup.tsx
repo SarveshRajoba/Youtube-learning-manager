@@ -69,7 +69,7 @@ const Signup = () => {
             <PlayCircle className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Join LearnTube</CardTitle>
+            <CardTitle className="text-2xl font-bold">Join YT Learning Manager</CardTitle>
             <CardDescription>Create an account to start your learning journey</CardDescription>
           </div>
         </CardHeader>
