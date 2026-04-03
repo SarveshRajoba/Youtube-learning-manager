@@ -12,14 +12,10 @@ import {
   CheckCircle2,
   BarChart3,
   Clock,
-  Youtube,
   LayoutDashboard,
   ListVideo,
-  CheckSquare,
   BrainCircuit,
   Play,
-  MoreVertical,
-  ThumbsUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -57,13 +53,6 @@ const benefits = [
   'AI-powered video summaries',
   'Bookmarks and personal notes',
   'Clean, distraction-free dashboard',
-]
-
-const statsData = [
-  { label: 'Playlists imported', value: '12K+', icon: <Youtube className="w-5 h-5" /> },
-  { label: 'Hours tracked', value: '280K+', icon: <Clock className="w-5 h-5" /> },
-  { label: 'Goals completed', value: '45K+', icon: <CheckSquare className="w-5 h-5" /> },
-  { label: 'Summaries generated', value: '98K+', icon: <BrainCircuit className="w-5 h-5" /> },
 ]
 
 // Animated section wrapper
@@ -105,9 +94,9 @@ function AnimatedSection({
 // Mock dashboard preview card
 function DashboardPreview() {
   const mockVideos = [
-    { title: 'React Hooks Deep Dive', channel: 'Fireship', progress: 100, likes: '48K' },
-    { title: 'TypeScript in 100 Seconds', channel: 'Fireship', progress: 60, likes: '32K' },
-    { title: 'CSS Grid Crash Course', channel: 'Traversy Media', progress: 0, likes: '21K' },
+    { title: 'React Hooks Deep Dive', channel: 'Fireship', progress: 100 },
+    { title: 'TypeScript in 100 Seconds', channel: 'Fireship', progress: 60 },
+    { title: 'CSS Grid Crash Course', channel: 'Traversy Media', progress: 0 },
   ]
 
   return (
@@ -161,11 +150,6 @@ function DashboardPreview() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-              <ThumbsUp className="w-3 h-3" />
-              {v.likes}
-            </div>
-            <MoreVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           </div>
         ))}
       </div>
@@ -253,24 +237,6 @@ const Welcome = () => {
         {/* Dashboard preview */}
         <AnimatedSection delay={0.15} className="w-full">
           <DashboardPreview />
-        </AnimatedSection>
-
-        {/* Stats row */}
-        <AnimatedSection delay={0.05} className="w-full mt-20">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {statsData.map((s) => (
-              <div
-                key={s.label}
-                className="rounded-2xl border bg-card/70 backdrop-blur-sm p-5 text-center shadow-sm"
-              >
-                <div className="flex items-center justify-center gap-1.5 text-primary mb-2">
-                  {s.icon}
-                </div>
-                <p className="text-2xl font-extrabold text-foreground">{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-              </div>
-            ))}
-          </div>
         </AnimatedSection>
 
         {/* Feature cards */}
