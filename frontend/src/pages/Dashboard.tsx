@@ -24,7 +24,6 @@ interface DashboardStats {
   completedVideos: number;
   totalWatchTime: string;
   activeGoals: number;
-  weeklyProgress: number;
 }
 
 interface RecentActivity {
@@ -45,13 +44,14 @@ interface RecentPlaylist {
   yt_id: string;
 }
 
+const FALLBACK_THUMBNAIL_URL = 'https://via.placeholder.com/300x200?text=No+Thumbnail';
+
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalVideos: 0,
     completedVideos: 0,
     totalWatchTime: "0h 0m",
     activeGoals: 0,
-    weeklyProgress: 0
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [recentPlaylists, setRecentPlaylists] = useState<RecentPlaylist[]>([]);
@@ -70,7 +70,6 @@ const Dashboard = () => {
         completedVideos: data.stats.completed_videos,
         totalWatchTime: data.stats.total_watch_time,
         activeGoals: data.stats.active_goals,
-        weeklyProgress: data.stats.weekly_progress
       });
 
       // Set real recent activity
@@ -139,7 +138,7 @@ const Dashboard = () => {
 
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 p-6 md:p-10 place-items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 p-6 md:p-10 place-items-stretch">
           <Card className="w-full bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 shadow-md rounded-2xl hover:shadow-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base font-semibold text-primary">Videos Completed</CardTitle>
@@ -160,7 +159,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-3xl font-bold">{stats.totalWatchTime}</div>
-              <p className="text-sm text-muted-foreground">This week</p>
+              <p className="text-sm text-muted-foreground">All time</p>
             </CardContent>
           </Card>
 
@@ -189,7 +188,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivity.map((activity) => (
+                {recentActivity.length > 0 ? recentActivity.map((activity) => (
                   <div key={activity.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                     <div className="w-2 h-2 rounded-full bg-primary"></div>
                     <div className="flex-1">
@@ -200,7 +199,12 @@ const Dashboard = () => {
                       <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No activity yet. Start watching videos to track your progress.</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -264,6 +268,7 @@ const Dashboard = () => {
                       src={playlist.thumbnail_url || playlist.thumbnail}
                       alt={playlist.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_THUMBNAIL_URL; }}
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <PlayCircle className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
